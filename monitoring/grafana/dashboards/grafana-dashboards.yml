@@ -1,0 +1,26 @@
+apiVersion: 1
+
+providers:
+  - name: 'Opentelemetry Collector'
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/otel-collector.json
+      foldersFromFilesStructure: false
+      
+  - name: 'Opentelemetry Collector Data Flow'
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/otel-collector-data-flow.json
+      foldersFromFilesStructure: false
+
+  - name: 'Cadvisor'
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/cadvisor.json
+      foldersFromFilesStructure: false
+
+  - name: 'Node Exporter'
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards/node-exporter.json
+      foldersFromFilesStructure: false

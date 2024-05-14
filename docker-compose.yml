@@ -1,0 +1,95 @@
+version: '3.9'
+services:
+  app:
+    build: ./application
+    environment:
+      - "OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317"
+      - "OTEL_RESOURCE_ATTRIBUTES=service.name=my-python-app"
+      - "OTEL_EXPORTER_OTLP_INSECURE=true"
+      - "OTEL_LOGS_EXPORTER=otlp"
+      - "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true"
+    ports:
+      - "8082:8082"
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    environment:
+      - "GF_FEATURE_TOGGLES_ENABLE=traceqlEditor traceQLStreaming metricsSummary"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/grafana-datasources.yml:/etc/grafana/provisioning/datasources/grafana-datasources.yml
+    ports:
+      - "3000:3000"
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.route-prefix=/'
+      - '--web.enable-remote-write-receiver'
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/machine-id:/etc/machine-id:ro
+      - /var/lib/dbus/machine-id:/var/lib/dbus/machine-id:ro
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+        
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - --collector.filesystem.ignored-mount-points
+      - '^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)'
+    restart: always
+    deploy:
+      mode: global
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.100.0
+    command:
+      - "--config=/etc/otel-collector/config.yaml"
+    volumes:
+      - ./monitoring/otel/config.yaml:/etc/otel-collector/config.yaml
+
+  loki:
+    image: grafana/loki
+    volumes:
+      - ./monitoring/loki/config.yml:/etc/loki/config.yml
+      - loki_data:/loki/data
+
+  tempo:
+    image: grafana/tempo:main-b76ab98
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./monitoring/tempo/tempo-config.yml:/etc/tempo.yaml
+      - tempo_data:/var/tempo
+
+volumes:
+  grafana_data:
+  prometheus_data:
+  loki_data:
+  tempo_data:
